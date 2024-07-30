@@ -72,8 +72,16 @@
     cursor: not-allowed;
 }
 
-.three-scene-container {
-    width: 100%;
-    height: 500px;
-    margin-top: 20px;
+.video-container {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    margin: 20px auto;
+}
+
+.video-container video,
+.video-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
 }

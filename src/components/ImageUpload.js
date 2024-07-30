@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import '../styles/ImageUpload.css';
@@ -9,6 +9,11 @@ function ImageUpload() {
     const [associatedWords, setAssociatedWords] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [isCameraMode, setIsCameraMode] = useState(false);
+    const videoRef = useRef();
+    const canvasRef = useRef();
+    const [cameras, setCameras] = useState([]);
+    const [selectedCamera, setSelectedCamera] = useState('');
 
     useEffect(() => {
         loadModels();
@@ -21,7 +26,7 @@ function ImageUpload() {
             await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
             await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
         } catch (error) {
-            setError('Failed to load face detection models. Please refresh and try again.');
+            setError('顔検出モデルの読み込みに失敗しました。ページを更新してもう一度お試しください。');
         }
         setIsLoading(false);
     };
@@ -37,28 +42,80 @@ function ImageUpload() {
                 await detectEmotions(e.target.result);
             };
             reader.onerror = () => {
-                setError('Failed to read the image file. Please try again.');
+                setError('画像ファイルの読み込みに失敗しました。もう一度お試しください。');
                 setIsLoading(false);
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const detectEmotions = async (imageUrl) => {
+    const getCameraDevices = async () => {
         try {
-            const img = await faceapi.fetchImage(imageUrl);
-            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            setCameras(videoDevices);
+            if (videoDevices.length > 0) {
+                setSelectedCamera(videoDevices[0].deviceId);
+            }
+        } catch (error) {
+            console.error('カメラデバイスの取得に失敗しました:', error);
+            setError('カメラデバイスの取得に失敗しました。');
+        }
+    };
+
+    useEffect(() => {
+        getCameraDevices();
+    }, []);
+
+    const startCamera = async () => {
+        setIsCameraMode(true);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: selectedCamera ? { exact: selectedCamera } : undefined }
+            });
+            videoRef.current.srcObject = stream;
+            videoRef.current.play();
+        } catch (error) {
+            setError('カメラの起動に失敗しました。カメラへのアクセス権限を確認してください。');
+            setIsCameraMode(false);
+        }
+    };
+
+    const handleCameraChange = (event) => {
+        setSelectedCamera(event.target.value);
+        if (isCameraMode) {
+            stopCamera();
+            startCamera();
+        }
+    };
+
+    const stopCamera = () => {
+        const stream = videoRef.current.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        setIsCameraMode(false);
+    };
+
+    const detectEmotions = async (input) => {
+        try {
+            let detections;
+            if (input instanceof HTMLVideoElement) {
+                detections = await faceapi.detectSingleFace(input, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+            } else {
+                const img = await faceapi.fetchImage(input);
+                detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+            }
             
             if (detections) {
                 setEmotions(detections.expressions);
                 await generateAssociatedWords(detections.expressions);
             } else {
-                setError('No face detected in the image. Please try another image.');
+                setError('画像から顔を検出できませんでした。別の画像をお試しください。');
                 setEmotions(null);
                 setAssociatedWords([]);
             }
         } catch (error) {
-            setError('Failed to analyze emotions. Please try again.');
+            setError('感情分析に失敗しました。もう一度お試しください。');
         }
         setIsLoading(false);
     };
@@ -67,7 +124,7 @@ function ImageUpload() {
         const emotionsString = Object.entries(emotions)
             .map(([emotion, probability]) => `${emotion}: ${(probability * 100).toFixed(2)}%`)
             .join(', ');
-    
+
         try {
             const response = await axios.post(
                 'https://api.openai.com/v1/chat/completions',
@@ -78,9 +135,9 @@ function ImageUpload() {
                         content: "あなたは感情データに基づいて連想される言葉や短いフレーズを日本語で生成する助手です。"
                     }, {
                         role: "user",
-                        content: `${emotionsString}\n以下の感情とその強度に基づいて、連想される感情を表現する言葉や短いフレーズを日本語で50個程度生成してください。それぞれの言葉やフレーズは文章ではなく簡潔な1語程度にしましょう。\n出力はcsvの形式にしてください。`
+                        content: `以下の感情とその強度に基づいて、連想される30個の言葉や短いフレーズを日本語で生成してください。それぞれの言葉やフレーズは簡潔で、1〜3単語程度にしてください。:\n${emotionsString}`
                     }],
-                    max_tokens: 150,
+                    max_tokens: 200,
                     n: 1,
                     temperature: 0.7,
                 },
@@ -91,40 +148,70 @@ function ImageUpload() {
                     },
                 }
             );
-    
+
             const generatedText = response.data.choices[0].message.content.trim();
-            const wordList = generatedText.split(/,|\n/).map(word => word.trim()).filter(word => word !== '');
+            const wordList = generatedText.split(/[,、\n]/).map(word => word.trim()).filter(word => word !== '');
             setAssociatedWords(wordList);
         } catch (error) {
-            console.error('Error generating associated words:', error);
+            console.error('連想語の生成中にエラーが発生しました:', error);
             if (error.response) {
-                console.error('Response data:', error.response.data);
-                console.error('Response status:', error.response.status);
+                console.error('レスポンスデータ:', error.response.data);
+                console.error('レスポンスステータス:', error.response.status);
             }
-            setError('Failed to generate associated words. Please try again.');
+            setError('連想語の生成に失敗しました。もう一度お試しください。');
             setAssociatedWords([]);
         }
     };
 
+    useEffect(() => {
+        if (isCameraMode) {
+            const interval = setInterval(async () => {
+                if (videoRef.current) {
+                    await detectEmotions(videoRef.current);
+                }
+            }, 3000);  // 3秒ごとに感情分析を実行
+
+            return () => clearInterval(interval);
+        }
+    }, [isCameraMode]);
+
     return (
         <div className="image-upload-container">
-            <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="image-input"
-                disabled={isLoading}
-            />
-            {isLoading && <div className="loading">Processing...</div>}
+            {!isCameraMode && (
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="image-input"
+                    disabled={isLoading}
+                />
+            )}
+            <button onClick={isCameraMode ? stopCamera : startCamera}>
+                {isCameraMode ? 'カメラを停止' : 'カメラを開始'}
+            </button>
+            <select value={selectedCamera} onChange={handleCameraChange}>
+                {cameras.map((camera) => (
+                    <option key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `カメラ ${cameras.indexOf(camera) + 1}`}
+                    </option>
+                ))}
+            </select>
+            {isLoading && <div className="loading">処理中...</div>}
             {error && <div className="error">{error}</div>}
-            {selectedImage && (
+            {selectedImage && !isCameraMode && (
                 <div className="image-preview">
-                    <img src={selectedImage} alt="Preview" />
+                    <img src={selectedImage} alt="プレビュー" />
+                </div>
+            )}
+            {isCameraMode && (
+                <div className="video-container">
+                    <video ref={videoRef} width="640" height="480" />
+                    <canvas ref={canvasRef} width="640" height="480" />
                 </div>
             )}
             {emotions && (
                 <div className="emotions-container">
-                    <h2>Detected Emotions:</h2>
+                    <h2>検出された感情:</h2>
                     <ul>
                         {Object.entries(emotions).map(([emotion, probability]) => (
                             <li key={emotion}>
@@ -136,7 +223,7 @@ function ImageUpload() {
             )}
             {associatedWords.length > 0 && (
                 <div className="associated-words-container">
-                    <h2>Associated Words/Phrases:</h2>
+                    <h2>連想される言葉/フレーズ:</h2>
                     <ul>
                         {associatedWords.map((word, index) => (
                             <li key={index}>{word}</li>
