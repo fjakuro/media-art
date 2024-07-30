@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import '../styles/ImageUpload.css';
+import EmotionVisualizer from './EmotionVisualizer';
 
 function ImageUpload() {
     const [selectedImage, setSelectedImage] = useState(null);
@@ -135,7 +136,7 @@ function ImageUpload() {
                         content: "あなたは感情データに基づいて連想される言葉や短いフレーズを日本語で生成する助手です。"
                     }, {
                         role: "user",
-                        content: `以下の感情とその強度に基づいて、連想される30個の言葉や短いフレーズを日本語で生成してください。それぞれの言葉やフレーズは簡潔で、1〜3単語程度にしてください。:\n${emotionsString}`
+                        content: `${emotionsString}\n以上の感情とその強度に基づいて、連想される感情を表現する言葉や短いフレーズを日本語で50個程度生成してください。それぞれの言葉やフレーズは文章ではなく簡潔な1語程度にしましょう。\n出力では数字や箇条書きは使用せずcsvの形式を用いてください。`
                     }],
                     max_tokens: 200,
                     n: 1,
@@ -230,6 +231,9 @@ function ImageUpload() {
                         ))}
                     </ul>
                 </div>
+            )}
+            {associatedWords.length > 0 && emotions && (
+                <EmotionVisualizer words={associatedWords} emotions={emotions} />
             )}
         </div>
     );
