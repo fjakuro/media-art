@@ -2,60 +2,82 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
+import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
 
 const EmotionVisualizer = ({ words, emotions }) => {
     const mountRef = useRef(null);
     const [font, setFont] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isStereo, setIsStereo] = useState(false);
+    const rendererRef = useRef(null);
+    const effectRef = useRef(null);
 
     useEffect(() => {
-        // フォントを一度だけ読み込む
         const loader = new FontLoader();
-        loader.load('fonts/M_PLUS_1_Thin_Regular.json', (loadedFont) => {
-            setFont(loadedFont);
-        });
+        loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
+            (loadedFont) => {
+                setFont(loadedFont);
+            },
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.error('An error happened', error);
+            }
+        );
     }, []);
 
     useEffect(() => {
         if (!font || words.length === 0) return;
 
-        // Three.js のセットアップ
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        let width = window.innerWidth;
+        let height = window.innerHeight;
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        rendererRef.current = renderer;
 
+        // デバイスのピクセル比を考慮
+        const pixelRatio = window.devicePixelRatio;
+        renderer.setPixelRatio(pixelRatio);
         renderer.setSize(width, height);
         mountRef.current.appendChild(renderer.domElement);
 
-        // カメラを固定位置に配置
+        const effect = new StereoEffect(renderer);
+        effectRef.current = effect;
+        effect.setSize(width, height);
+
         camera.position.z = 15;
 
-        // 感情に基づく背景色の設定
         const backgroundColor = getBackgroundColor(emotions);
         scene.background = new THREE.Color(backgroundColor);
 
-        // 文字オブジェクトを格納する配列
         const textMeshes = [];
 
-        // 各単語に対してテキストメッシュを作成
-        words.forEach((word, index) => {
+        words.forEach((word) => {
             const geometry = new TextGeometry(word, {
                 font: font,
                 size: 0.5,
                 height: 0.1,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.03,
+                bevelSize: 0.02,
+                bevelSegments: 5
             });
-            const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0xffffff,
+                shininess: 100,
+                specular: 0x111111
+            });
             const mesh = new THREE.Mesh(geometry, material);
 
-            // ランダムな初期位置に配置
             mesh.position.set(
                 Math.random() * 20 - 10,
                 Math.random() * 20 - 10,
                 Math.random() * 10 - 5
             );
 
-            // 各メッシュに移動方向を設定
             mesh.velocity = new THREE.Vector3(
                 (Math.random() - 0.5) * 0.02,
                 (Math.random() - 0.5) * 0.02,
@@ -66,42 +88,119 @@ const EmotionVisualizer = ({ words, emotions }) => {
             textMeshes.push(mesh);
         });
 
-        // ライトの追加
         const light = new THREE.PointLight(0xffffff, 1, 100);
         light.position.set(0, 0, 10);
         scene.add(light);
 
-        // アニメーションループ
+        // 環境光を追加
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // 各テキストメッシュを移動
             textMeshes.forEach(mesh => {
                 mesh.position.add(mesh.velocity);
 
-                // 画面端に到達したら反対側に移動
                 if (Math.abs(mesh.position.x) > 10) mesh.position.x *= -0.9;
                 if (Math.abs(mesh.position.y) > 10) mesh.position.y *= -0.9;
                 if (Math.abs(mesh.position.z) > 5) mesh.position.z *= -0.9;
 
-                // テキストが常にカメラの方を向くようにする
                 mesh.lookAt(camera.position);
             });
 
-            renderer.render(scene, camera);
+            if (isStereo) {
+                effect.render(scene, camera);
+            } else {
+                renderer.render(scene, camera);
+            }
         };
+
         animate();
 
-        // クリーンアップ関数
-        return () => {
-            mountRef.current.removeChild(renderer.domElement);
+        const handleResize = () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            effect.setSize(width, height);
         };
-    }, [words, emotions, font]);
 
-    return <div ref={mountRef} />;
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            mountRef.current.removeChild(renderer.domElement);
+            renderer.dispose();
+        };
+    }, [words, emotions, font, isStereo]);
+
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            if (mountRef.current.requestFullscreen) {
+                mountRef.current.requestFullscreen();
+            } else if (mountRef.current.webkitRequestFullscreen) { // Safari
+                mountRef.current.webkitRequestFullscreen();
+            } else if (mountRef.current.msRequestFullscreen) { // IE11
+                mountRef.current.msRequestFullscreen();
+            }
+            setIsFullscreen(true);
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { // Safari
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { // IE11
+                document.msExitFullscreen();
+            }
+            setIsFullscreen(false);
+        }
+    };
+
+    const toggleStereo = () => {
+        setIsStereo(!isStereo);
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />
+            <button 
+                onClick={toggleFullscreen}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    padding: '10px',
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                }}
+            >
+                {isFullscreen ? '全画面解除' : '全画面表示'}
+            </button>
+            <button 
+                onClick={toggleStereo}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '150px',
+                    zIndex: 1000,
+                    padding: '10px',
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                }}
+            >
+                {isStereo ? '通常表示' : '立体視表示'}
+            </button>
+        </div>
+    );
 };
 
-// 感情に基づいて背景色を決定する関数
 const getBackgroundColor = (emotions) => {
     if (!emotions) return '#000000';
 
