@@ -13,11 +13,26 @@ const EmotionVisualizer = ({ words, emotions }) => {
     const effectRef = useRef(null);
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
+    const textMeshesRef = useRef([]);
+    const animationFrameId = useRef(null);
+
+    const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
+    const [performanceLevel, setPerformanceLevel] = useState('high');
 
     useEffect(() => {
+        const canvas = document.createElement('canvas');
+        setIsWebGLAvailable(!!window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+
+        const performanceNow = performance.now();
+        let sum = 0;
+        for (let i = 0; i < 1000000; i++) {
+            sum += Math.random();
+        }
+        const elapsedTime = performance.now() - performanceNow;
+        setPerformanceLevel(elapsedTime < 50 ? 'high' : elapsedTime < 100 ? 'medium' : 'low');
+
         const loader = new FontLoader();
-        // loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
-        loader.load('/fonts/Sawarabi_Mincho_Regular.json',
+        loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
             (loadedFont) => {
                 setFont(loadedFont);
             },
@@ -31,7 +46,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
     }, []);
 
     useEffect(() => {
-        if (!font || words.length === 0) return;
+        if (!isWebGLAvailable || !font || words.length === 0) return;
 
         let width = window.innerWidth;
         let height = window.innerHeight;
@@ -42,7 +57,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         rendererRef.current = renderer;
 
-        const pixelRatio = window.devicePixelRatio;
+        const pixelRatio = performanceLevel === 'low' ? 1 : window.devicePixelRatio;
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(width, height);
         mountRef.current.appendChild(renderer.domElement);
@@ -56,12 +71,18 @@ const EmotionVisualizer = ({ words, emotions }) => {
         const backgroundColor = getBackgroundColor(emotions);
         scene.background = new THREE.Color(backgroundColor);
 
-        const textMeshes = [];
+        const light = new THREE.PointLight(0xffffff, 1, 100);
+        light.position.set(0, 0, 20);
+        scene.add(light);
+
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const objectPool = [];
 
         const createTextMesh = (word, isVertical = false) => {
             let geometry;
             if (isVertical) {
-                // 縦書きのジオメトリを作成
                 const verticalWord = word.split('').join('\n');
                 geometry = new TextGeometry(verticalWord, {
                     font: font,
@@ -107,34 +128,61 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 (Math.random() - 0.5) * 0.02
             );
 
-            mesh.lifespan = Math.random() * 10 + 5; // 5-15秒のライフスパン
+            mesh.lifespan = Math.random() * 10 + 5;
             mesh.age = 0;
             mesh.isVertical = isVertical;
 
-            scene.add(mesh);
-            textMeshes.push(mesh);
+            return mesh;
         };
 
+        const getOrCreateTextMesh = (word) => {
+            let mesh = objectPool.pop();
+            if (!mesh) {
+                mesh = createTextMesh(word, Math.random() < 0.5);
+            } else {
+                // Update existing mesh
+                if (mesh.material.map) {
+                    mesh.material.map.dispose();
+                }
+                mesh.material.map = null;
+                mesh.position.set(
+                    Math.random() * 40 - 20,
+                    Math.random() * 40 - 20,
+                    Math.random() * 30 - 15
+                );
+                mesh.velocity.set(
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02
+                );
+                mesh.lifespan = Math.random() * 10 + 5;
+                mesh.age = 0;
+            }
+            return mesh;
+        };
+
+        const releaseTextMesh = (mesh) => {
+            scene.remove(mesh);
+            objectPool.push(mesh);
+        };
+
+        const maxObjects = performanceLevel === 'high' ? 100 : performanceLevel === 'medium' ? 50 : 25;
+
         words.forEach(word => {
-            // 50%の確率で縦書きにする
-            createTextMesh(word, Math.random() < 0.5);
+            if (textMeshesRef.current.length < maxObjects) {
+                const mesh = getOrCreateTextMesh(word);
+                scene.add(mesh);
+                textMeshesRef.current.push(mesh);
+            }
         });
 
-        const light = new THREE.PointLight(0xffffff, 1, 100);
-        light.position.set(0, 0, 20);
-        scene.add(light);
-
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
-
         const animate = () => {
-            requestAnimationFrame(animate);
+            animationFrameId.current = requestAnimationFrame(animate);
 
-            textMeshes.forEach((mesh, index) => {
+            textMeshesRef.current.forEach((mesh, index) => {
                 mesh.position.add(mesh.velocity);
-                mesh.age += 0.016; // 約1/60秒
+                mesh.age += 0.016;
 
-                // フェードインとフェードアウト
                 if (mesh.age < 1) {
                     mesh.material.opacity = mesh.age;
                 } else if (mesh.age > mesh.lifespan - 1) {
@@ -142,16 +190,19 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 }
 
                 if (mesh.age >= mesh.lifespan) {
-                    scene.remove(mesh);
-                    textMeshes.splice(index, 1);
-                    createTextMesh(words[Math.floor(Math.random() * words.length)], Math.random() < 0.5);
+                    releaseTextMesh(mesh);
+                    textMeshesRef.current.splice(index, 1);
+                    if (words.length > 0) {
+                        const newMesh = getOrCreateTextMesh(words[Math.floor(Math.random() * words.length)]);
+                        scene.add(newMesh);
+                        textMeshesRef.current.push(newMesh);
+                    }
                 }
 
                 if (Math.abs(mesh.position.x) > 20) mesh.velocity.x *= -1;
                 if (Math.abs(mesh.position.y) > 20) mesh.velocity.y *= -1;
                 if (Math.abs(mesh.position.z) > 15) mesh.velocity.z *= -1;
 
-                // 縦書きでない場合のみカメラの方を向く
                 if (!mesh.isVertical) {
                     mesh.lookAt(camera.position);
                 }
@@ -179,10 +230,16 @@ const EmotionVisualizer = ({ words, emotions }) => {
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            mountRef.current.removeChild(renderer.domElement);
+            cancelAnimationFrame(animationFrameId.current);
+            textMeshesRef.current.forEach(mesh => {
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+            });
+            scene.remove(...scene.children);
             renderer.dispose();
+            mountRef.current.removeChild(renderer.domElement);
         };
-    }, [words, emotions, font, isStereo]);
+    }, [words, emotions, font, isStereo, isWebGLAvailable, performanceLevel]);
 
     const toggleFullscreen = () => {
         const element = mountRef.current;
@@ -220,6 +277,19 @@ const EmotionVisualizer = ({ words, emotions }) => {
             document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
         };
     }, []);
+
+    if (!isWebGLAvailable) {
+        return (
+            <div>
+                <h2>3D表示はこのデバイスでサポートされていません</h2>
+                <ul>
+                    {words.map((word, index) => (
+                        <li key={index}>{word}</li>
+                    ))}
+                </ul>
+            </div>
+        );
+    }
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
