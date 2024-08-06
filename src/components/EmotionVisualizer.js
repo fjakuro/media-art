@@ -11,10 +11,13 @@ const EmotionVisualizer = ({ words, emotions }) => {
     const [isStereo, setIsStereo] = useState(false);
     const rendererRef = useRef(null);
     const effectRef = useRef(null);
+    const sceneRef = useRef(null);
+    const cameraRef = useRef(null);
 
     useEffect(() => {
         const loader = new FontLoader();
-        loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
+        // loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
+        loader.load('/fonts/Sawarabi_Mincho_Regular.json',
             (loadedFont) => {
                 setFont(loadedFont);
             },
@@ -33,11 +36,12 @@ const EmotionVisualizer = ({ words, emotions }) => {
         let width = window.innerWidth;
         let height = window.innerHeight;
         const scene = new THREE.Scene();
+        sceneRef.current = scene;
         const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        cameraRef.current = camera;
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         rendererRef.current = renderer;
 
-        // デバイスのピクセル比を考慮
         const pixelRatio = window.devicePixelRatio;
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(width, height);
@@ -47,35 +51,54 @@ const EmotionVisualizer = ({ words, emotions }) => {
         effectRef.current = effect;
         effect.setSize(width, height);
 
-        camera.position.z = 15;
+        camera.position.z = 20;
 
         const backgroundColor = getBackgroundColor(emotions);
         scene.background = new THREE.Color(backgroundColor);
 
         const textMeshes = [];
 
-        words.forEach((word) => {
-            const geometry = new TextGeometry(word, {
-                font: font,
-                size: 0.5,
-                height: 0.1,
-                curveSegments: 12,
-                bevelEnabled: true,
-                bevelThickness: 0.03,
-                bevelSize: 0.02,
-                bevelSegments: 5
-            });
+        const createTextMesh = (word, isVertical = false) => {
+            let geometry;
+            if (isVertical) {
+                // 縦書きのジオメトリを作成
+                const verticalWord = word.split('').join('\n');
+                geometry = new TextGeometry(verticalWord, {
+                    font: font,
+                    size: 0.5,
+                    height: 0.1,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.03,
+                    bevelSize: 0.02,
+                    bevelSegments: 5
+                });
+            } else {
+                geometry = new TextGeometry(word, {
+                    font: font,
+                    size: 0.5,
+                    height: 0.1,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.03,
+                    bevelSize: 0.02,
+                    bevelSegments: 5
+                });
+            }
+
             const material = new THREE.MeshPhongMaterial({ 
                 color: 0xffffff,
                 shininess: 100,
-                specular: 0x111111
+                specular: 0x111111,
+                transparent: true,
+                opacity: 0
             });
             const mesh = new THREE.Mesh(geometry, material);
 
             mesh.position.set(
-                Math.random() * 20 - 10,
-                Math.random() * 20 - 10,
-                Math.random() * 10 - 5
+                Math.random() * 40 - 20,
+                Math.random() * 40 - 20,
+                Math.random() * 30 - 15
             );
 
             mesh.velocity = new THREE.Vector3(
@@ -84,29 +107,54 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 (Math.random() - 0.5) * 0.02
             );
 
+            mesh.lifespan = Math.random() * 10 + 5; // 5-15秒のライフスパン
+            mesh.age = 0;
+            mesh.isVertical = isVertical;
+
             scene.add(mesh);
             textMeshes.push(mesh);
+        };
+
+        words.forEach(word => {
+            // 50%の確率で縦書きにする
+            createTextMesh(word, Math.random() < 0.5);
         });
 
         const light = new THREE.PointLight(0xffffff, 1, 100);
-        light.position.set(0, 0, 10);
+        light.position.set(0, 0, 20);
         scene.add(light);
 
-        // 環境光を追加
         const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
 
         const animate = () => {
             requestAnimationFrame(animate);
 
-            textMeshes.forEach(mesh => {
+            textMeshes.forEach((mesh, index) => {
                 mesh.position.add(mesh.velocity);
+                mesh.age += 0.016; // 約1/60秒
 
-                if (Math.abs(mesh.position.x) > 10) mesh.position.x *= -0.9;
-                if (Math.abs(mesh.position.y) > 10) mesh.position.y *= -0.9;
-                if (Math.abs(mesh.position.z) > 5) mesh.position.z *= -0.9;
+                // フェードインとフェードアウト
+                if (mesh.age < 1) {
+                    mesh.material.opacity = mesh.age;
+                } else if (mesh.age > mesh.lifespan - 1) {
+                    mesh.material.opacity = mesh.lifespan - mesh.age;
+                }
 
-                mesh.lookAt(camera.position);
+                if (mesh.age >= mesh.lifespan) {
+                    scene.remove(mesh);
+                    textMeshes.splice(index, 1);
+                    createTextMesh(words[Math.floor(Math.random() * words.length)], Math.random() < 0.5);
+                }
+
+                if (Math.abs(mesh.position.x) > 20) mesh.velocity.x *= -1;
+                if (Math.abs(mesh.position.y) > 20) mesh.velocity.y *= -1;
+                if (Math.abs(mesh.position.z) > 15) mesh.velocity.z *= -1;
+
+                // 縦書きでない場合のみカメラの方を向く
+                if (!mesh.isVertical) {
+                    mesh.lookAt(camera.position);
+                }
             });
 
             if (isStereo) {
@@ -137,22 +185,19 @@ const EmotionVisualizer = ({ words, emotions }) => {
     }, [words, emotions, font, isStereo]);
 
     const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            if (mountRef.current.requestFullscreen) {
-                mountRef.current.requestFullscreen();
-            } else if (mountRef.current.webkitRequestFullscreen) { // Safari
-                mountRef.current.webkitRequestFullscreen();
-            } else if (mountRef.current.msRequestFullscreen) { // IE11
-                mountRef.current.msRequestFullscreen();
+        const element = mountRef.current;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (element.requestFullscreen) {
+                element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) {
+                element.webkitRequestFullscreen();
             }
             setIsFullscreen(true);
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) { // Safari
+            } else if (document.webkitExitFullscreen) {
                 document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) { // IE11
-                document.msExitFullscreen();
             }
             setIsFullscreen(false);
         }
@@ -162,9 +207,23 @@ const EmotionVisualizer = ({ words, emotions }) => {
         setIsStereo(!isStereo);
     };
 
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
     return (
-        <div style={{ position: 'relative' }}>
-            <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />
+        <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+            <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
             <button 
                 onClick={toggleFullscreen}
                 style={{
