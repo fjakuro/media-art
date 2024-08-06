@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
+import EmotionBackground from './EmotionBackground';
 
 const EmotionVisualizer = ({ words, emotions }) => {
     const mountRef = useRef(null);
@@ -54,7 +55,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
         sceneRef.current = scene;
         const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
         cameraRef.current = camera;
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         rendererRef.current = renderer;
 
         const pixelRatio = performanceLevel === 'low' ? 1 : window.devicePixelRatio;
@@ -67,9 +68,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
         effect.setSize(width, height);
 
         camera.position.z = 20;
-
-        const backgroundColor = getBackgroundColor(emotions);
-        scene.background = new THREE.Color(backgroundColor);
 
         const light = new THREE.PointLight(0xffffff, 1, 100);
         light.position.set(0, 0, 20);
@@ -293,6 +291,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+            <EmotionBackground emotions={emotions} />
             <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
             <button 
                 onClick={toggleFullscreen}
@@ -328,22 +327,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
             </button>
         </div>
     );
-};
-
-const getBackgroundColor = (emotions) => {
-    if (!emotions) return '#000000';
-
-    const maxEmotion = Object.entries(emotions).reduce((a, b) => a[1] > b[1] ? a : b);
-
-    switch (maxEmotion[0]) {
-        case 'happy': return '#FFD700';
-        case 'sad': return '#4169E1';
-        case 'angry': return '#FF4500';
-        case 'fearful': return '#800080';
-        case 'disgusted': return '#006400';
-        case 'surprised': return '#FF69B4';
-        default: return '#808080';
-    }
 };
 
 export default EmotionVisualizer;
