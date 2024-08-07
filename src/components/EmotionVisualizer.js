@@ -7,16 +7,17 @@ import EmotionBackground from './EmotionBackground';
 
 const EmotionVisualizer = ({ words, emotions }) => {
     const mountRef = useRef(null);
-    const [font, setFont] = useState(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [isStereo, setIsStereo] = useState(false);
     const rendererRef = useRef(null);
-    const effectRef = useRef(null);
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
+    const effectRef = useRef(null);
     const textMeshesRef = useRef([]);
     const animationFrameId = useRef(null);
+    const geometryRef = useRef(null);
+    const materialRef = useRef(null);
+    const objectPoolRef = useRef([]);
 
+    const [font, setFont] = useState(null);
     const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
     const [performanceLevel, setPerformanceLevel] = useState('high');
 
@@ -76,8 +77,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
         const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
 
-        const objectPool = [];
-
         const createTextMesh = (word, isVertical = false) => {
             let geometry;
             if (isVertical) {
@@ -104,6 +103,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
                     bevelSegments: 5
                 });
             }
+            geometryRef.current = geometry;
 
             const material = new THREE.MeshPhongMaterial({ 
                 color: 0xffffff,
@@ -112,6 +112,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 transparent: true,
                 opacity: 0
             });
+            materialRef.current = material;
             const mesh = new THREE.Mesh(geometry, material);
 
             mesh.position.set(
@@ -134,7 +135,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
         };
 
         const getOrCreateTextMesh = (word) => {
-            let mesh = objectPool.pop();
+            let mesh = objectPoolRef.current.pop();
             if (!mesh) {
                 mesh = createTextMesh(word, Math.random() < 0.5);
             } else {
@@ -161,7 +162,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
 
         const releaseTextMesh = (mesh) => {
             scene.remove(mesh);
-            objectPool.push(mesh);
+            objectPoolRef.current.push(mesh);
         };
 
         const maxObjects = performanceLevel === 'high' ? 100 : performanceLevel === 'medium' ? 50 : 25;
@@ -206,10 +207,8 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 }
             });
 
-            if (isStereo) {
-                effect.render(scene, camera);
-            } else {
-                renderer.render(scene, camera);
+            if (effectRef.current) {
+                effectRef.current.render(scene, camera);
             }
         };
 
@@ -220,8 +219,12 @@ const EmotionVisualizer = ({ words, emotions }) => {
             height = window.innerHeight;
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
-            effect.setSize(width, height);
+            if (rendererRef.current) {
+                rendererRef.current.setSize(width, height);
+            }
+            if (effectRef.current) {
+                effectRef.current.setSize(width, height);
+            }
         };
 
         window.addEventListener('resize', handleResize);
@@ -230,51 +233,22 @@ const EmotionVisualizer = ({ words, emotions }) => {
             window.removeEventListener('resize', handleResize);
             cancelAnimationFrame(animationFrameId.current);
             textMeshesRef.current.forEach(mesh => {
-                mesh.geometry.dispose();
-                mesh.material.dispose();
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) mesh.material.dispose();
             });
-            scene.remove(...scene.children);
-            renderer.dispose();
-            mountRef.current.removeChild(renderer.domElement);
-        };
-    }, [words, emotions, font, isStereo, isWebGLAvailable, performanceLevel]);
-
-    const toggleFullscreen = () => {
-        const element = mountRef.current;
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            if (element.requestFullscreen) {
-                element.requestFullscreen();
-            } else if (element.webkitRequestFullscreen) {
-                element.webkitRequestFullscreen();
+            if (sceneRef.current) {
+                sceneRef.current.remove(...sceneRef.current.children);
             }
-            setIsFullscreen(true);
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+                if (mountRef.current && rendererRef.current.domElement) {
+                    mountRef.current.removeChild(rendererRef.current.domElement);
+                }
             }
-            setIsFullscreen(false);
-        }
-    };
-
-    const toggleStereo = () => {
-        setIsStereo(!isStereo);
-    };
-
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement);
+            if (geometryRef.current) geometryRef.current.dispose();
+            if (materialRef.current) materialRef.current.dispose();
         };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-        };
-    }, []);
+    }, [words, emotions, font, isWebGLAvailable, performanceLevel]);
 
     if (!isWebGLAvailable) {
         return (
@@ -290,41 +264,9 @@ const EmotionVisualizer = ({ words, emotions }) => {
     }
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+        <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
             <EmotionBackground emotions={emotions} />
-            <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-            <button 
-                onClick={toggleFullscreen}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    zIndex: 1000,
-                    padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.7)',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                }}
-            >
-                {isFullscreen ? '全画面解除' : '全画面表示'}
-            </button>
-            <button 
-                onClick={toggleStereo}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '150px',
-                    zIndex: 1000,
-                    padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.7)',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                }}
-            >
-                {isStereo ? '通常表示' : '立体視表示'}
-            </button>
+            <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
         </div>
     );
 };

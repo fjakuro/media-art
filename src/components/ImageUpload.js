@@ -3,6 +3,7 @@ import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import '../styles/ImageUpload.css';
 import EmotionVisualizer from './EmotionVisualizer';
+import EmotionVisualizerWrapper from './EmotionVisualizerWrapper';
 
 function ImageUpload() {
     const [selectedImage, setSelectedImage] = useState(null);
@@ -133,14 +134,14 @@ function ImageUpload() {
                     model: "gpt-3.5-turbo",
                     messages: [{
                         role: "system",
-                        content: "あなたは感情データに基づいて連想される言葉を日本語で生成するアシスタントです。"
+                        content: "あなたは感情データに基づいて連想される言葉や短いフレーズを日本語で生成する助手です。"
                     }, {
                         role: "user",
-                        content: `${emotionsString}\n以上の感情とその強度に基づいて、連想される感情を表現する言葉を日本語で200個程度生成してください。それぞれの言葉は文章ではなく簡潔な1語にしましょう。感情を表現する言葉を1単語で表現してください。\n可能な限り重複は避けてください。\n出力では数字や箇条書きは使用せずcsvの形式を用いてください。`
+                        content: `${emotionsString}\n以上の感情とその強度に基づいて、連想される感情を表現する言葉や短いフレーズを日本語で50個程度生成してください。それぞれの言葉やフレーズは文章ではなく簡潔な1語程度にしましょう。\n出力では数字や箇条書きは使用せずcsvの形式を用いてください。`
                     }],
-                    max_tokens: 2000,
+                    max_tokens: 200,
                     n: 1,
-                    temperature: 0.8,
+                    temperature: 0.7,
                 },
                 {
                     headers: {
@@ -187,7 +188,7 @@ function ImageUpload() {
                     disabled={isLoading}
                 />
             )}
-            <button onClick={isCameraMode ? stopCamera : startCamera}>
+            {/* <button onClick={isCameraMode ? stopCamera : startCamera}>
                 {isCameraMode ? 'カメラを停止' : 'カメラを開始'}
             </button>
             <select value={selectedCamera} onChange={handleCameraChange}>
@@ -196,7 +197,7 @@ function ImageUpload() {
                         {camera.label || `カメラ ${cameras.indexOf(camera) + 1}`}
                     </option>
                 ))}
-            </select>
+            </select> */}
             {isLoading && <div className="loading">処理中...</div>}
             {error && <div className="error">{error}</div>}
             {selectedImage && !isCameraMode && (
@@ -204,13 +205,13 @@ function ImageUpload() {
                     <img src={selectedImage} alt="プレビュー" />
                 </div>
             )}
-            {isCameraMode && (
+            {/* {isCameraMode && (
                 <div className="video-container">
                     <video ref={videoRef} width="640" height="480" />
                     <canvas ref={canvasRef} width="640" height="480" />
                 </div>
-            )}
-            {emotions && (
+            )} */}
+            {/* {emotions && (
                 <div className="emotions-container">
                     <h2>検出された感情:</h2>
                     <ul>
@@ -221,8 +222,8 @@ function ImageUpload() {
                         ))}
                     </ul>
                 </div>
-            )}
-            {associatedWords.length > 0 && (
+            )} */}
+            {/* {associatedWords.length > 0 && (
                 <div className="associated-words-container">
                     <h2>連想される言葉/フレーズ:</h2>
                     <ul>
@@ -231,9 +232,12 @@ function ImageUpload() {
                         ))}
                     </ul>
                 </div>
-            )}
+            )} */}
             {associatedWords.length > 0 && emotions && (
                 <EmotionVisualizer words={associatedWords} emotions={emotions} />
+            )}
+            {associatedWords.length > 0 && emotions && (
+                <EmotionVisualizerWrapper words={associatedWords} emotions={emotions} />
             )}
         </div>
     );

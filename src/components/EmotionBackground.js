@@ -3,12 +3,14 @@ import * as THREE from 'three';
 import axios from 'axios';
 
 const EmotionBackground = ({ emotions }) => {
+    const [colors, setColors] = useState(['#E6E6FA', '#B0E0E6', '#F0E68C', '#FFB6C1']);
     const mountRef = useRef(null);
-    const [colors, setColors] = useState([]);
     const rendererRef = useRef(null);
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
     const planeRef = useRef(null);
+    const geometryRef = useRef(null);
+    const materialRef = useRef(null);
     const animationFrameId = useRef(null);
 
     useEffect(() => {
@@ -70,6 +72,8 @@ const EmotionBackground = ({ emotions }) => {
         rendererRef.current = renderer;
 
         const geometry = new THREE.PlaneGeometry(2, 2);
+        geometryRef.current = geometry;
+
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 color1: { value: new THREE.Color(colors[0]) },
@@ -148,6 +152,7 @@ const EmotionBackground = ({ emotions }) => {
                 }
             `
         });
+        materialRef.current = material;
 
         const plane = new THREE.Mesh(geometry, material);
         scene.add(plane);
@@ -173,15 +178,25 @@ const EmotionBackground = ({ emotions }) => {
         return () => {
             cancelAnimationFrame(animationFrameId.current);
             window.removeEventListener('resize', handleResize);
-            scene.remove(plane);
-            geometry.dispose();
-            material.dispose();
-            renderer.dispose();
-            mountRef.current.removeChild(renderer.domElement);
+            if (sceneRef.current && planeRef.current) {
+                sceneRef.current.remove(planeRef.current);
+            }
+            if (geometryRef.current) {
+                geometryRef.current.dispose();
+            }
+            if (materialRef.current) {
+                materialRef.current.dispose();
+            }
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+            }
+            if (mountRef.current && rendererRef.current) {
+                mountRef.current.removeChild(rendererRef.current.domElement);
+            }
         };
-    }, [colors]);
+    }, [colors, emotions]);
 
-    return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, zIndex: -1 }} />;
+    return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1 }} />;
 };
 
 export default EmotionBackground;
