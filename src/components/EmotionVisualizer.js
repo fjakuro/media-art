@@ -6,20 +6,20 @@ import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
 import EmotionBackground from './EmotionBackground';
 
 const EmotionVisualizer = ({ words, emotions }) => {
+    const [font, setFont] = useState(null);
+    const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
+    const [performanceLevel, setPerformanceLevel] = useState('high');
+
     const mountRef = useRef(null);
     const rendererRef = useRef(null);
+    const effectRef = useRef(null);
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
-    const effectRef = useRef(null);
     const textMeshesRef = useRef([]);
     const animationFrameId = useRef(null);
     const geometryRef = useRef(null);
     const materialRef = useRef(null);
     const objectPoolRef = useRef([]);
-
-    const [font, setFont] = useState(null);
-    const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
-    const [performanceLevel, setPerformanceLevel] = useState('high');
 
     useEffect(() => {
         const canvas = document.createElement('canvas');
@@ -68,10 +68,10 @@ const EmotionVisualizer = ({ words, emotions }) => {
         effectRef.current = effect;
         effect.setSize(width, height);
 
-        camera.position.z = 20;
+        camera.position.z = 30; // カメラを少し後ろに下げる
 
         const light = new THREE.PointLight(0xffffff, 1, 100);
-        light.position.set(0, 0, 20);
+        light.position.set(0, 0, 30);
         scene.add(light);
 
         const ambientLight = new THREE.AmbientLight(0x404040);
@@ -83,8 +83,8 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 const verticalWord = word.split('').join('\n');
                 geometry = new TextGeometry(verticalWord, {
                     font: font,
-                    size: 0.5,
-                    height: 0.1,
+                    size: 1.5, // サイズを大きく
+                    height: 0.2,
                     curveSegments: 12,
                     bevelEnabled: true,
                     bevelThickness: 0.03,
@@ -94,8 +94,8 @@ const EmotionVisualizer = ({ words, emotions }) => {
             } else {
                 geometry = new TextGeometry(word, {
                     font: font,
-                    size: 0.5,
-                    height: 0.1,
+                    size: 1.5, // サイズを大きく
+                    height: 0.2,
                     curveSegments: 12,
                     bevelEnabled: true,
                     bevelThickness: 0.03,
@@ -103,7 +103,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
                     bevelSegments: 5
                 });
             }
-            geometryRef.current = geometry;
 
             const material = new THREE.MeshPhongMaterial({ 
                 color: 0xffffff,
@@ -112,13 +111,12 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 transparent: true,
                 opacity: 0
             });
-            materialRef.current = material;
             const mesh = new THREE.Mesh(geometry, material);
 
             mesh.position.set(
-                Math.random() * 40 - 20,
-                Math.random() * 40 - 20,
-                Math.random() * 30 - 15
+                Math.random() * 60 - 30, // 配置範囲を広げる
+                Math.random() * 60 - 30,
+                Math.random() * 40 - 20
             );
 
             mesh.velocity = new THREE.Vector3(
@@ -165,7 +163,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
             objectPoolRef.current.push(mesh);
         };
 
-        const maxObjects = performanceLevel === 'high' ? 100 : performanceLevel === 'medium' ? 50 : 25;
+        const maxObjects = performanceLevel === 'high' ? 200 : performanceLevel === 'medium' ? 100 : 50; // オブジェクト数を増やす
 
         words.forEach(word => {
             if (textMeshesRef.current.length < maxObjects) {
@@ -198,18 +196,16 @@ const EmotionVisualizer = ({ words, emotions }) => {
                     }
                 }
 
-                if (Math.abs(mesh.position.x) > 20) mesh.velocity.x *= -1;
-                if (Math.abs(mesh.position.y) > 20) mesh.velocity.y *= -1;
-                if (Math.abs(mesh.position.z) > 15) mesh.velocity.z *= -1;
+                if (Math.abs(mesh.position.x) > 30) mesh.velocity.x *= -1;
+                if (Math.abs(mesh.position.y) > 30) mesh.velocity.y *= -1;
+                if (Math.abs(mesh.position.z) > 20) mesh.velocity.z *= -1;
 
                 if (!mesh.isVertical) {
                     mesh.lookAt(camera.position);
                 }
             });
 
-            if (effectRef.current) {
-                effectRef.current.render(scene, camera);
-            }
+            effect.render(scene, camera);
         };
 
         animate();

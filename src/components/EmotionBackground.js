@@ -131,6 +131,10 @@ const EmotionBackground = ({ emotions }) => {
 
                 void main() {
                     vec2 st = gl_FragCoord.xy / resolution.xy;
+                    
+                    // Adjust UV coordinates to fit the background in each half
+                    st.x = fract(st.x * 2.0);
+                    
                     float t = time * 0.00005; // Significantly slowed down the overall animation
 
                     // Create noise pattern with larger color areas
