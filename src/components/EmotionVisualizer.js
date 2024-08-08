@@ -5,7 +5,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
 import EmotionBackground from './EmotionBackground';
 
-const EmotionVisualizer = ({ words, emotions }) => {
+const EmotionVisualizer = ({ words, emotions, isFullscreen }) => {
     const [font, setFont] = useState(null);
     const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
     const [performanceLevel, setPerformanceLevel] = useState('high');
@@ -70,7 +70,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
         effectRef.current = effect;
         effect.setSize(width, height);
 
-        camera.position.z = 30; // カメラを少し後ろに下げる
+        camera.position.z = 30;
 
         const light = new THREE.PointLight(0xffffff, 1, 100);
         light.position.set(0, 0, 30);
@@ -175,8 +175,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
             }
         });
 
-        setIsAnimationReady(true);
-
         const animate = () => {
             animationFrameId.current = requestAnimationFrame(animate);
 
@@ -209,7 +207,11 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 }
             });
 
-            effect.render(scene, camera);
+            if (isFullscreen) {
+                effect.render(scene, camera);
+            } else {
+                renderer.render(scene, camera);
+            }
         };
 
         animate();
@@ -248,7 +250,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
             if (geometryRef.current) geometryRef.current.dispose();
             if (materialRef.current) materialRef.current.dispose();
         };
-    }, [words, emotions, font, isWebGLAvailable, performanceLevel]);
+    }, [words, emotions, font, isWebGLAvailable, performanceLevel, isFullscreen]);
 
     if (!isWebGLAvailable) {
         return (
@@ -267,23 +269,6 @@ const EmotionVisualizer = ({ words, emotions }) => {
         <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
             <EmotionBackground emotions={emotions} />
             <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
-            {!isAnimationReady && (
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    color: 'white',
-                    fontSize: '24px'
-                }}>
-                    映像を作成しています...
-                </div>
-            )}
         </div>
     );
 };

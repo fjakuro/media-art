@@ -115,7 +115,7 @@ function ImageUpload() {
         <div className="image-upload-container">
             <div className="upload-section">
                 <label htmlFor="file-upload" className="custom-file-upload">
-                    画像を選択
+                    ファイルを選択
                 </label>
                 <input
                     id="file-upload"
