@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as faceapi from 'face-api.js';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import * as faceapi from 'face-api.js';
 import '../styles/ImageUpload.css';
 import EmotionVisualizer from './EmotionVisualizer';
 import EmotionVisualizerWrapper from './EmotionVisualizerWrapper';
@@ -11,11 +11,7 @@ function ImageUpload() {
     const [associatedWords, setAssociatedWords] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [isCameraMode, setIsCameraMode] = useState(false);
-    const videoRef = useRef();
-    const canvasRef = useRef();
-    const [cameras, setCameras] = useState([]);
-    const [selectedCamera, setSelectedCamera] = useState('');
+    const [showPreview, setShowPreview] = useState(true);
 
     useEffect(() => {
         loadModels();
@@ -38,6 +34,7 @@ function ImageUpload() {
         if (file) {
             setIsLoading(true);
             setError(null);
+            setShowPreview(true);
             const reader = new FileReader();
             reader.onload = async (e) => {
                 setSelectedImage(e.target.result);
@@ -51,66 +48,15 @@ function ImageUpload() {
         }
     };
 
-    const getCameraDevices = async () => {
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            setCameras(videoDevices);
-            if (videoDevices.length > 0) {
-                setSelectedCamera(videoDevices[0].deviceId);
-            }
-        } catch (error) {
-            console.error('カメラデバイスの取得に失敗しました:', error);
-            setError('カメラデバイスの取得に失敗しました。');
-        }
-    };
-
-    useEffect(() => {
-        getCameraDevices();
-    }, []);
-
-    const startCamera = async () => {
-        setIsCameraMode(true);
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { deviceId: selectedCamera ? { exact: selectedCamera } : undefined }
-            });
-            videoRef.current.srcObject = stream;
-            videoRef.current.play();
-        } catch (error) {
-            setError('カメラの起動に失敗しました。カメラへのアクセス権限を確認してください。');
-            setIsCameraMode(false);
-        }
-    };
-
-    const handleCameraChange = (event) => {
-        setSelectedCamera(event.target.value);
-        if (isCameraMode) {
-            stopCamera();
-            startCamera();
-        }
-    };
-
-    const stopCamera = () => {
-        const stream = videoRef.current.srcObject;
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
-        setIsCameraMode(false);
-    };
-
     const detectEmotions = async (input) => {
         try {
-            let detections;
-            if (input instanceof HTMLVideoElement) {
-                detections = await faceapi.detectSingleFace(input, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-            } else {
-                const img = await faceapi.fetchImage(input);
-                detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-            }
+            const img = await faceapi.fetchImage(input);
+            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
             
             if (detections) {
                 setEmotions(detections.expressions);
                 await generateAssociatedWords(detections.expressions);
+                setShowPreview(false);
             } else {
                 setError('画像から顔を検出できませんでした。別の画像をお試しください。');
                 setEmotions(null);
@@ -131,7 +77,7 @@ function ImageUpload() {
             const response = await axios.post(
                 'https://api.openai.com/v1/chat/completions',
                 {
-                    model: "gpt-3.5-turbo",
+                    model: "gpt-4o-mini",
                     messages: [{
                         role: "system",
                         content: "あなたは感情データに基づいて連想される言葉や短いフレーズを日本語で生成する助手です。"
@@ -165,74 +111,22 @@ function ImageUpload() {
         }
     };
 
-    useEffect(() => {
-        if (isCameraMode) {
-            const interval = setInterval(async () => {
-                if (videoRef.current) {
-                    await detectEmotions(videoRef.current);
-                }
-            }, 3000);  // 3秒ごとに感情分析を実行
-
-            return () => clearInterval(interval);
-        }
-    }, [isCameraMode]);
-
     return (
         <div className="image-upload-container">
-            {!isCameraMode && (
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="image-input"
-                    disabled={isLoading}
-                />
-            )}
-            {/* <button onClick={isCameraMode ? stopCamera : startCamera}>
-                {isCameraMode ? 'カメラを停止' : 'カメラを開始'}
-            </button>
-            <select value={selectedCamera} onChange={handleCameraChange}>
-                {cameras.map((camera) => (
-                    <option key={camera.deviceId} value={camera.deviceId}>
-                        {camera.label || `カメラ ${cameras.indexOf(camera) + 1}`}
-                    </option>
-                ))}
-            </select> */}
+            <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="image-input"
+                disabled={isLoading}
+            />
             {isLoading && <div className="loading">処理中...</div>}
             {error && <div className="error">{error}</div>}
-            {selectedImage && !isCameraMode && (
+            {selectedImage && showPreview && (
                 <div className="image-preview">
                     <img src={selectedImage} alt="プレビュー" />
                 </div>
             )}
-            {/* {isCameraMode && (
-                <div className="video-container">
-                    <video ref={videoRef} width="640" height="480" />
-                    <canvas ref={canvasRef} width="640" height="480" />
-                </div>
-            )} */}
-            {/* {emotions && (
-                <div className="emotions-container">
-                    <h2>検出された感情:</h2>
-                    <ul>
-                        {Object.entries(emotions).map(([emotion, probability]) => (
-                            <li key={emotion}>
-                                {emotion}: {(probability * 100).toFixed(2)}%
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )} */}
-            {/* {associatedWords.length > 0 && (
-                <div className="associated-words-container">
-                    <h2>連想される言葉/フレーズ:</h2>
-                    <ul>
-                        {associatedWords.map((word, index) => (
-                            <li key={index}>{word}</li>
-                        ))}
-                    </ul>
-                </div>
-            )} */}
             {associatedWords.length > 0 && emotions && (
                 <EmotionVisualizer words={associatedWords} emotions={emotions} />
             )}

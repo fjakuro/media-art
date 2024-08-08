@@ -9,6 +9,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
     const [font, setFont] = useState(null);
     const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
     const [performanceLevel, setPerformanceLevel] = useState('high');
+    const [isAnimationReady, setIsAnimationReady] = useState(false);
 
     const mountRef = useRef(null);
     const rendererRef = useRef(null);
@@ -163,7 +164,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
             objectPoolRef.current.push(mesh);
         };
 
-        const maxObjects = performanceLevel === 'high' ? 200 : performanceLevel === 'medium' ? 100 : 50; // オブジェクト数を増やす
+        const maxObjects = performanceLevel === 'high' ? 200 : performanceLevel === 'medium' ? 100 : 50;
 
         words.forEach(word => {
             if (textMeshesRef.current.length < maxObjects) {
@@ -172,6 +173,8 @@ const EmotionVisualizer = ({ words, emotions }) => {
                 textMeshesRef.current.push(mesh);
             }
         });
+
+        setIsAnimationReady(true);
 
         const animate = () => {
             animationFrameId.current = requestAnimationFrame(animate);
@@ -263,6 +266,23 @@ const EmotionVisualizer = ({ words, emotions }) => {
         <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
             <EmotionBackground emotions={emotions} />
             <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+            {!isAnimationReady && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    color: 'white',
+                    fontSize: '24px'
+                }}>
+                    感情を可視化しています...
+                </div>
+            )}
         </div>
     );
 };
