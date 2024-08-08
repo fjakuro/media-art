@@ -35,7 +35,8 @@ const EmotionVisualizer = ({ words, emotions }) => {
         setPerformanceLevel(elapsedTime < 50 ? 'high' : elapsedTime < 100 ? 'medium' : 'low');
 
         const loader = new FontLoader();
-        loader.load('/fonts/yuzunoki-font_kaisho.json',
+        // loader.load('/fonts/yuzu_subset2_Regular.json',
+        loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
             (loadedFont) => {
                 setFont(loadedFont);
             },
