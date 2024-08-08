@@ -40,7 +40,7 @@ function EmotionVisualizerWrapper({ words, emotions }) {
           onClick={isFullscreen ? closeVisualizer : openVisualizer} 
           className={`visualizer-button ${isFullscreen ? 'close-button' : ''}`}
         >
-          {isFullscreen ? '閉じる' : '全画面表示'}
+          {isFullscreen ? '閉じる' : '全画面（立体視）表示'}
         </button>
         <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} />
       </div>
