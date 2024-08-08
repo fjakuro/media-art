@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import EmotionVisualizer from './EmotionVisualizer';
 import '../styles/EmotionVisualizerWrapper.css';
 
@@ -6,22 +6,28 @@ function EmotionVisualizerWrapper({ words, emotions }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const visualizerRef = useRef(null);
 
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        closeVisualizer();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isFullscreen]);
+
   const openVisualizer = () => {
     setIsFullscreen(true);
-    if (visualizerRef.current.requestFullscreen) {
-      visualizerRef.current.requestFullscreen();
-    } else if (visualizerRef.current.webkitRequestFullscreen) {
-      visualizerRef.current.webkitRequestFullscreen();
-    }
+    document.body.style.overflow = 'hidden'; // スクロールを無効化
   };
 
   const closeVisualizer = () => {
     setIsFullscreen(false);
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    }
+    document.body.style.overflow = ''; // スクロールを再有効化
   };
 
   return (
@@ -36,9 +42,15 @@ function EmotionVisualizerWrapper({ words, emotions }) {
         >
           {isFullscreen ? '閉じる' : '全画面表示'}
         </button>
-        <EmotionVisualizer words={words} emotions={emotions} />
-
+        <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} />
       </div>
+      {isFullscreen && (
+        <div className="fullscreen-overlay" onClick={closeVisualizer}>
+          <div className="fullscreen-content" onClick={(e) => e.stopPropagation()}>
+            <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
