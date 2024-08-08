@@ -14,16 +14,16 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>離散化する感情</h1>
-      </header>
-      
-      <section className="overview">
-        <p>
-          本作品は、あなたの表情から感情を読み取り、AIが言葉に変換します。
-          そして、その言葉があなたの内なる感情をどのように表現し、
-          また表現しきれないかを、インタラクティブな3D空間で体験していただきます。
-        </p>
+      <section className="instructions">
+        {/* <h2>離散化する感情</h2> */}
+        <ol>
+          <li>自分の顔が映った思い出の写真を用意してください。<br/><span className="sub-instruction">（今、自撮りをしていただいても構いません）</span></li>
+          <li>下記の「ファイルを選択」から写真をアップロードしてください。</li>
+          <li>「全画面表示」ボタンを押し、表示された画面を全画面にして横画面表示にしてください。</li>
+          <li>スマートフォン用VRゴーグルにセットして覗き込んでください。</li>
+          <li>表示される言葉や色彩を見ながら、撮影当時の感情について考えてみてください。</li>
+        </ol>
+        <p className="privacy-note">※写真は製作者のサーバーで処理されますが保存はされません。またOpenAIのAPIを利用していますが、写真そのものは送信されず分析された感情パラメータのみが送られます。</p>
       </section>
 
       <section className="image-upload">

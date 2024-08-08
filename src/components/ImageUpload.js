@@ -113,25 +113,34 @@ function ImageUpload() {
 
     return (
         <div className="image-upload-container">
-            <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="image-input"
-                disabled={isLoading}
-            />
-            {isLoading && <div className="loading">処理中...</div>}
+            <div className="upload-section">
+                <label htmlFor="file-upload" className="custom-file-upload">
+                    画像を選択
+                </label>
+                <input
+                    id="file-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="image-input"
+                    disabled={isLoading}
+                />
+            </div>
+            
+            {isLoading && <div className="loading">感情を分析しています...</div>}
             {error && <div className="error">{error}</div>}
+            
             {selectedImage && showPreview && (
                 <div className="image-preview">
                     <img src={selectedImage} alt="プレビュー" />
                 </div>
             )}
+            
             {associatedWords.length > 0 && emotions && (
-                <EmotionVisualizer words={associatedWords} emotions={emotions} />
-            )}
-            {associatedWords.length > 0 && emotions && (
-                <EmotionVisualizerWrapper words={associatedWords} emotions={emotions} />
+                <div className="result-section">
+                    <EmotionVisualizerWrapper words={associatedWords} emotions={emotions} />
+                    {/* <EmotionVisualizer words={associatedWords} emotions={emotions} /> */}
+                </div>
             )}
         </div>
     );

@@ -280,7 +280,7 @@ const EmotionVisualizer = ({ words, emotions }) => {
                     color: 'white',
                     fontSize: '24px'
                 }}>
-                    感情を可視化しています...
+                    映像を作成しています...
                 </div>
             )}
         </div>
