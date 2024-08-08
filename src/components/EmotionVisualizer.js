@@ -5,7 +5,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
 import EmotionBackground from './EmotionBackground';
 
-const EmotionVisualizer = ({ words, emotions, isFullscreen }) => {
+const EmotionVisualizer = ({ words, emotions, isFullscreen, isStereo }) => {
     const [font, setFont] = useState(null);
     const [isWebGLAvailable, setIsWebGLAvailable] = useState(true);
     const [performanceLevel, setPerformanceLevel] = useState('high');
@@ -207,7 +207,7 @@ const EmotionVisualizer = ({ words, emotions, isFullscreen }) => {
                 }
             });
 
-            if (isFullscreen) {
+            if (isFullscreen && isStereo) {
                 effect.render(scene, camera);
             } else {
                 renderer.render(scene, camera);
@@ -250,7 +250,7 @@ const EmotionVisualizer = ({ words, emotions, isFullscreen }) => {
             if (geometryRef.current) geometryRef.current.dispose();
             if (materialRef.current) materialRef.current.dispose();
         };
-    }, [words, emotions, font, isWebGLAvailable, performanceLevel, isFullscreen]);
+    }, [words, emotions, font, isWebGLAvailable, performanceLevel, isFullscreen, isStereo]);
 
     if (!isWebGLAvailable) {
         return (
@@ -267,7 +267,7 @@ const EmotionVisualizer = ({ words, emotions, isFullscreen }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
-            <EmotionBackground emotions={emotions} />
+            <EmotionBackground emotions={emotions} isFullscreen={isFullscreen} />
             <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
         </div>
     );

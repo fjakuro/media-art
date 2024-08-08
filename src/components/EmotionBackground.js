@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import axios from 'axios';
 
-const EmotionBackground = ({ emotions, isFullscreen }) => {
+const EmotionBackground = ({ emotions, isFullscreen, isStereo }) => {
     const [colors, setColors] = useState(['#E6E6FA', '#B0E0E6', '#F0E68C', '#FFB6C1']);
     const mountRef = useRef(null);
     const rendererRef = useRef(null);
@@ -82,7 +82,8 @@ const EmotionBackground = ({ emotions, isFullscreen }) => {
                 color4: { value: new THREE.Color(colors[3]) },
                 time: { value: 0 },
                 resolution: { value: new THREE.Vector2(width, height) },
-                isFullscreen: { value: isFullscreen ? 1.0 : 0.0 }
+                isFullscreen: { value: isFullscreen ? 1.0 : 0.0 },
+                isStereo: { value: isStereo ? 1.0 : 0.0 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -99,6 +100,7 @@ const EmotionBackground = ({ emotions, isFullscreen }) => {
                 uniform float time;
                 uniform vec2 resolution;
                 uniform float isFullscreen;
+                uniform float isStereo;
                 varying vec2 vUv;
 
                 // Simplex 2D noise
@@ -134,8 +136,8 @@ const EmotionBackground = ({ emotions, isFullscreen }) => {
                 void main() {
                     vec2 st = gl_FragCoord.xy / resolution.xy;
                     
-                    // Adjust UV coordinates based on fullscreen mode
-                    if (isFullscreen > 0.5) {
+                    // Adjust UV coordinates based on fullscreen and stereo modes
+                    if (isFullscreen > 0.5 && isStereo > 0.5) {
                         st.x = fract(st.x * 2.0);
                     }
                     
@@ -202,7 +204,7 @@ const EmotionBackground = ({ emotions, isFullscreen }) => {
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
         };
-    }, [colors, emotions, isFullscreen]);
+    }, [colors, emotions, isFullscreen, isStereo]);
 
     return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1 }} />;
 };

@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import EmotionVisualizer from './EmotionVisualizer';
+import EmotionBackground from './EmotionBackground';
 import '../styles/EmotionVisualizerWrapper.css';
 
 function EmotionVisualizerWrapper({ words, emotions }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isStereo, setIsStereo] = useState(false);
   const visualizerRef = useRef(null);
 
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape' && isFullscreen) {
-        closeVisualizer();
+        toggleFullscreen();
       }
     };
 
@@ -20,14 +22,14 @@ function EmotionVisualizerWrapper({ words, emotions }) {
     };
   }, [isFullscreen]);
 
-  const openVisualizer = () => {
-    setIsFullscreen(true);
-    document.body.style.overflow = 'hidden'; // スクロールを無効化
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => !prev);
+    document.body.style.overflow = isFullscreen ? '' : 'hidden';
+    setIsStereo(!isFullscreen); // フルスクリーンに入る際は立体視をオンに、出る際はオフに
   };
 
-  const closeVisualizer = () => {
-    setIsFullscreen(false);
-    document.body.style.overflow = ''; // スクロールを再有効化
+  const toggleStereo = () => {
+    setIsStereo((prev) => !prev);
   };
 
   return (
@@ -36,21 +38,25 @@ function EmotionVisualizerWrapper({ words, emotions }) {
         ref={visualizerRef}
         className={`visualizer-container ${isFullscreen ? 'fullscreen' : ''}`}
       >
-        <button 
-          onClick={isFullscreen ? closeVisualizer : openVisualizer} 
-          className={`visualizer-button ${isFullscreen ? 'close-button' : ''}`}
-        >
-          {isFullscreen ? '閉じる' : '全画面（立体視）表示'}
-        </button>
-        <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} />
-      </div>
-      {isFullscreen && (
-        <div className="fullscreen-overlay" onClick={closeVisualizer}>
-          <div className="fullscreen-content" onClick={(e) => e.stopPropagation()}>
-            <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} />
-          </div>
+        <div className="button-container">
+          {isFullscreen && (
+            <button 
+              onClick={toggleStereo} 
+              className="control-button stereo-toggle-button"
+            >
+              {isStereo ? '立体視オフ' : '立体視オン'}
+            </button>
+          )}
+          <button 
+            onClick={toggleFullscreen} 
+            className="control-button fullscreen-button"
+          >
+            {isFullscreen ? '閉じる' : '全画面表示'}
+          </button>
         </div>
-      )}
+        <EmotionBackground emotions={emotions} isFullscreen={isFullscreen} isStereo={isStereo} />
+        <EmotionVisualizer words={words} emotions={emotions} isFullscreen={isFullscreen} isStereo={isStereo} />
+      </div>
     </div>
   );
 }
