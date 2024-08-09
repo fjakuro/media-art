@@ -267,7 +267,7 @@ const EmotionVisualizer = ({ words, emotions, isFullscreen, isStereo }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
-            <EmotionBackground emotions={emotions} isFullscreen={isFullscreen} />
+            <EmotionBackground emotions={emotions} isFullscreen={isFullscreen} isStereo={isStereo} />
             <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
         </div>
     );
