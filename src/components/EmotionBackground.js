@@ -141,7 +141,7 @@ const EmotionBackground = ({ emotions, isFullscreen, isStereo }) => {
                         st.x = fract(st.x * 2.0);
                     }
                     
-                    float t = time * 0.00005; // Significantly slowed down the overall animation
+                    float t = time * 0.0001; // Significantly slowed down the overall animation
 
                     // Create noise pattern with larger color areas
                     float noise1 = snoise(st * 1.5 + t);
