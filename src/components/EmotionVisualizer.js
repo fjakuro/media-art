@@ -36,7 +36,7 @@ const EmotionVisualizer = ({ words, emotions, isFullscreen, isStereo }) => {
 
         const loader = new FontLoader();
         // loader.load('/fonts/yuzu_subset2_Regular.json',
-        loader.load('/fonts/M_PLUS_1_Thin_Regular.json',
+        loader.load(process.env.PUBLIC_URL + '/fonts/M_PLUS_1_Thin_Regular.json',
             (loadedFont) => {
                 setFont(loadedFont);
             },
